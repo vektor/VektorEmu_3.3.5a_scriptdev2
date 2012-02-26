@@ -1,6 +1,4 @@
-/*
- * Copyright (C) 2009 Trinity <http://www.trinitycore.org/>
- *
+/* Copyright (C) 2006 - 2012 ScriptDev2 <http://www.scriptdev2.com/>
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -8,232 +6,101 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
+/* ScriptData
+SDName: Zuldrak
+SD%Complete: 100
+SDComment: Quest support: 12934.
+SDCategory: Zuldrak
+EndScriptData */
+
+/* ContentData
+npc_gurgthock
+EndContentData */
 
 #include "precompiled.h"
 
-/*####
-## npc_drakuru_shackles
-####*/
+/*######
+## npc_gurgthock
+######*/
 
-enum eDrakuruShackles
+enum
 {
-    SPELL_LEFT_CHAIN           = 59951,
-    SPELL_RIGHT_CHAIN          = 59952,
-    SPELL_UNLOCK_SHACKLE       = 55083,
-    SPELL_FREE_RAGECLAW        = 55223,
+    QUEST_FROM_BEYOND = 12934,
 
-    NPC_RAGECLAW               = 29686
+    NPC_AZBARIN       = 30026,
+    NPC_DUKE_SINGEN   = 30019,
+    NPC_ERATHIUS      = 30025,
+    NPC_GARGORAL      = 30024
 };
 
-struct MANGOS_DLL_DECL npc_drakuru_shacklesAI : public ScriptedAI
-{
-    npc_drakuru_shacklesAI(Creature *c) : ScriptedAI(c) {}
+static float m_afSpawnLocation[] = {5768.71f, -2969.29f, 273.816f};
+static uint32 m_auiBosses[] = {NPC_AZBARIN, NPC_DUKE_SINGEN, NPC_ERATHIUS, NPC_GARGORAL};
 
-    Unit* Rageclaw;
+struct MANGOS_DLL_DECL npc_gurgthockAI : public ScriptedAI
+{
+    npc_gurgthockAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+    ObjectGuid m_playerGuid;
+
+    void SetPlayer(Player* pPlayer)
+    {
+        m_playerGuid = pPlayer->GetObjectGuid();
+    }
 
     void Reset()
     {
-        me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-        float x, y, z;
-        Rageclaw = NULL;
-        me->GetClosePoint(x, y, z, me->GetObjectBoundingRadius()/3,0.1);
-        if (Unit* summon = me->SummonCreature(NPC_RAGECLAW,x,y,z,0,TEMPSUMMON_DEAD_DESPAWN,1000))
-            DoActionOnRageclaw(true,summon);
+        m_playerGuid.Clear();
     }
 
-    void DoActionOnRageclaw(bool locking, Unit *who)
+    void SummonedCreatureJustDied(Creature* pSummoned)
     {
-        if (!who)
-            return;
-
-        if (locking)
+        uint32 uiEntry = pSummoned->GetEntry();
+        for(uint8 i = 0; i < 4; ++i)
         {
-            if (who)
+            if (uiEntry == m_auiBosses[i])
             {
-                Rageclaw = who;
+                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    pPlayer->GroupEventHappens(QUEST_FROM_BEYOND, m_creature);
 
-                me->SetInFront(Rageclaw);
-                Rageclaw->SetInFront(me);
-
-                DoCast(Rageclaw, SPELL_LEFT_CHAIN, true);
-                DoCast(Rageclaw, SPELL_RIGHT_CHAIN, true);
+                m_playerGuid.Clear();
+                return;
             }
         }
-        else
-        {
-            DoCast(Rageclaw, SPELL_FREE_RAGECLAW, true);
-            who->CastSpell(Rageclaw, SPELL_UNLOCK_SHACKLE, true);
-            me->setDeathState(DEAD);
-        }
-    }
-
-    void SpellHit(Unit *caster, const SpellEntry *spell)
-    {
-        if (spell->Id == SPELL_UNLOCK_SHACKLE)
-        {
-            if (Rageclaw)
-                DoActionOnRageclaw(false,caster);
-            else
-                me->setDeathState(JUST_DIED);
-
-        }
     }
 };
 
-CreatureAI* GetAI_npc_drakuru_shackles(Creature* pCreature)
+bool QuestAccept_npc_gurgthock(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
 {
-    return new npc_drakuru_shacklesAI (pCreature);
+    if (pQuest->GetQuestId() == QUEST_FROM_BEYOND)
+    {
+        pCreature->SummonCreature(m_auiBosses[urand(0, 3)], m_afSpawnLocation[0], m_afSpawnLocation[1], m_afSpawnLocation[2], 0.0f, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 600000);
+
+        if (npc_gurgthockAI* pGurthockAI = dynamic_cast<npc_gurgthockAI*>(pCreature->AI()))
+            pGurthockAI->SetPlayer(pPlayer);
+    }
+    return true;
 }
 
-/*####
-## npc_captured_rageclaw
-####*/
-
-enum eRageclaw
+CreatureAI* GetAI_npc_gurgthock(Creature* pCreature)
 {
-    SPELL_UNSHACKLED           = 55085,
-    SPELL_KNEEL                = 39656
-};
-
-const char * SAY_RAGECLAW_1 =      "I poop on you, trollses!";
-const char * SAY_RAGECLAW_2 =      "ARRRROOOOGGGGAAAA!";
-const char * SAY_RAGECLAW_3 =      "No more mister nice wolvar!";
-
-struct MANGOS_DLL_DECL npc_captured_rageclawAI : public ScriptedAI
-{
-    npc_captured_rageclawAI(Creature *c) : ScriptedAI(c) {}
-
-    uint32 DespawnTimer;
-    bool Despawn;
-
-    void Reset()
-    {
-        Despawn = false;
-        DespawnTimer = 0;
-        me->setFaction(35);
-        DoCastMe( SPELL_KNEEL, true); // Little Hack for kneel - Thanks Illy :P
-    }
-
-    void MoveInLineOfSight(Unit *who){}
-
-    void SpellHit(Unit *caster, const SpellEntry *spell)
-    {
-        if (spell->Id == SPELL_FREE_RAGECLAW)
-        {
-            me->RemoveAurasDueToSpell(SPELL_LEFT_CHAIN);
-
-            me->RemoveAurasDueToSpell(SPELL_RIGHT_CHAIN);
-
-            me->RemoveAurasDueToSpell(SPELL_KNEEL);
-
-            me->setFaction(me->GetCreatureInfo()->faction_H);
-
-            DoCastMe( SPELL_UNSHACKLED, true);
-			const char* tmpTxt;
-			switch(urand(0,2))
-			{
-				case 0:
-					tmpTxt = SAY_RAGECLAW_1;
-					break;
-				case 1:
-					tmpTxt = SAY_RAGECLAW_2;
-					break;
-				case 2:
-					tmpTxt = SAY_RAGECLAW_3;
-					break;
-			}
-            me->MonsterSay(tmpTxt, LANG_UNIVERSAL, NULL);
-            me->GetMotionMaster()->MoveConfused();
-
-            DespawnTimer = 10000;
-            Despawn = true;
-        }
-    }
-
-    void UpdateAI(const uint32 diff)
-    {
-        if (me->getVictim())
-        {
-            DoMeleeAttackIfReady();
-            return;
-        }
-
-        if (!Despawn)
-            return;
-
-        if (DespawnTimer <= diff)
-            me->setDeathState(JUST_DIED);
-        else DespawnTimer-=diff;
-   }
-};
-
-CreatureAI* GetAI_npc_captured_rageclaw(Creature* pCreature)
-{
-    return new npc_captured_rageclawAI (pCreature);
+    return new npc_gurgthockAI(pCreature);
 }
-
-/*####
-## npc_gymer
-####*/
-
-#define    GOSSIP_ITEM_G "I'm ready, Gymer. Let's go!"
-
-enum eGymer
-{
-    QUEST_STORM_KING_VENGEANCE    = 12919,
-    SPELL_GYMER                   = 55568
-};
-
-    bool GossipHello_npc_gymer(Player *pPlayer, Creature *pCreature)
-    {
-        if (pCreature->isQuestGiver())
-            pPlayer->PrepareQuestMenu(pCreature->GetGUID());
-        pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetGUID());
-
-        if (pPlayer->GetQuestStatus(QUEST_STORM_KING_VENGEANCE) == QUEST_STATUS_INCOMPLETE)
-        {
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_G, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
-            pPlayer->SEND_GOSSIP_MENU(13640, pCreature->GetGUID());
-        }
-
-        return true;
-    }
-
-    bool GossipSelect_npc_gymer(Player *pPlayer, Creature *pCreature, uint32 uiSender, uint32 uiAction)
-    {
-        if (uiAction == GOSSIP_ACTION_INFO_DEF+1)
-        {
-            pPlayer->CLOSE_GOSSIP_MENU();
-            pPlayer->CastSpell(pPlayer, SPELL_GYMER, true);
-        }
-
-        return true;
-    }
 
 void AddSC_zuldrak()
 {
-    Script *newscript;
+    Script* pNewScript;
 
-    newscript = new Script;
-    newscript->Name = "npc_drakuru_shackles";
-    newscript->GetAI = &GetAI_npc_drakuru_shackles;
-    newscript->RegisterSelf();
-
-    newscript = new Script;
-    newscript->Name = "npc_captured_rageclaw";
-    newscript->GetAI = &GetAI_npc_captured_rageclaw;
-    newscript->RegisterSelf();
-
-    newscript = new Script;
-    newscript->Name = "npc_gymer";
-    newscript->pGossipHello = &GossipHello_npc_gymer;
-    newscript->pGossipSelect = &GossipSelect_npc_gymer;
-    newscript->RegisterSelf();
+    pNewScript = new Script;
+    pNewScript->Name = "npc_gurgthock";
+    pNewScript->GetAI = &GetAI_npc_gurgthock;
+    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_gurgthock;
+    pNewScript->RegisterSelf();
 }
