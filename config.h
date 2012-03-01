@@ -22,7 +22,6 @@
 #include "Platform/CompilerDefs.h"
 #include "revision.h"
 #include "sd2_revision_nr.h"
-#include "sd2_revision_R2.h"
 
 // Format is YYYYMMDDRR where RR is the change in the conf file
 // for that day.
@@ -37,7 +36,7 @@
 #endif
 
 #ifndef _VERSION
-  #define _VERSION "Revision [" SD2_REVISION_NR "] Revision R2 [" SD2_REVISION_R2 "] (" REVISION_ID ") " REVISION_DATE " " REVISION_TIME
+  #define _VERSION "Revision [" SD2_REVISION_NR "] (" REVISION_ID ") " REVISION_DATE " " REVISION_TIME
 #endif
 
 // The path to config files

@@ -119,8 +119,8 @@ void InitScriptLibrary()
     outstring_log("   MM M   M MMMM");
     outstring_log("MM  M M  M ");
     outstring_log(" MMM  MMM  http://www.scriptdev2.com");
-    outstring_log("R2 modifications included (https://github.com/mangosR2/scriptdev2)");
-    outstring_log(_VERSION);
+    outstring_log("MaNGOSRev2 modifications included (https://github.com/vektor/VektorEmu_3.3.5a_scriptdev2)");
+    outstring_log("");
 
     // Get configuration file
     if (!SD2Config.SetSource(_SCRIPTDEV2_CONFIG))
